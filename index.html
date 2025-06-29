@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport"/>
+<title>EcoCidadão App</title>
+<!-- Leaflet CSS para mapa -->
+<link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
+<style>
+  /* Reset básico */
+  * {
+    box-sizing: border-box;
+  }
+  body, html {
+    margin: 0; padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    background: #fff;
+    color: #222;
+    display: flex;
+    flex-direction: column;
+  }
+  body.dark-mode {
+    background: #121212;
+    color: #eee;
+  }
+
+  /* Container principal flexível */
+  #app {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 420px;
+    margin: auto;
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    height: 100vh;
+  }
+
+  /* Top bar */
+  header {
+    background: #4caf50;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    position: relative;
+  }
+  #btnSettings {
+    position: absolute;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #userInfo {
+    margin-left: 40px;
+    flex-grow: 1;
+  }
+  #userInfo div {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  #userInfo span {
+    font-weight: normal;
+  }
+
+  /* Painel configurações flutuante */
+  
+#settingsPanel {
+  position: center;
+  top: 50px;
+  right: 10px;
+  background: #4caf50;
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  display: none;
+  z-index: 1000;
+  width: 200px;
+  max-width: calc(100% - 20px); /* Garante que nunca ultrapasse os lados */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+
+
+
+
+  #settingsPanel label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  #settingsPanel select, #settingsPanel input[type="checkbox"] {
+    margin-left: 8px;
+  }
+
+  /* Áreas principais */
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px 20px 70px 20px; /* espaço para footer fixo */
+  }
+
+  /* Todas as telas ocultas por padrão */
+  .screen {
+    display: none;
+  }
+  .screen.active {
+    display: block;
+  }
+
+  /* Botões principais */
+  button {
+    width: 100%;
+    padding: 14px;
+    margin: 12px 0;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    background: #4caf50;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.25s ease;
+  }
+  button:hover:not(:disabled) {
+    background: #3a9a35;
+  }
+  button:disabled {
+    background: #999;
+    cursor: default;
+  }
+  input, select {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0 20px 0;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+  }
+  body.dark-mode input, body.dark-mode select {
+    background: #222;
+    color: #eee;
+    border-color: #555;
+  }
+
+  /* Botão voltar fixo no rodapé */
+  footer {
+    position: center;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-width: 420px;
+    background: #eee;
+    border-top: 1px solid #ccc;
+    padding: 10px 20px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    z-index: 900;
+  }
+  body.dark-mode footer {
+    background: #222;
+    border-color: #444;
+  }
+  footer button {
+    width: auto;
+    padding: 10px 18px;
+    background: #666;
+  }
+  footer button:hover {
+    background: #444;
+  }
+  footer button:disabled {
+    background: #999;
+  }
+
+  /* Mapa */
+ #map {
+  width: 300px;
+  height: 300px;
+  margin: 0 auto;
+  display: block;
+  border-radius: 12px;
+  border: 2px solid #ccc;
+}
+
+  body.dark-mode #map {
+    border-color: #555;
+  }
+
+  /* Conversor layout */
+  #convertScreen .container {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  #convertScreen .cupons, #convertScreen .pontos-info {
+    flex: 1 1 240px;
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+  }
+  body.dark-mode #convertScreen .cupons,
+  body.dark-mode #convertScreen .pontos-info {
+    background: #222;
+  }
+
+  #convertScreen select {
+    margin-bottom: 12px;
+  }
+  #convertMessage {
+    font-weight: 700;
+    margin-top: 8px;
+    min-height: 24px;
+  }
+
+  /* Lista de cupons */
+  #userCouponsList {
+    list-style: none;
+    padding-left: 0;
+  }
+  #userCouponsList li {
+    margin-bottom: 10px;
+    background: #d4edda;
+    border-radius: 8px;
+    padding: 10px;
+    font-weight: 600;
+  }
+  body.dark-mode #userCouponsList li {
+    background: #375a3c;
+  }
+
+  /* Quiz opções */
+  #quizOptions button {
+    text-align: left;
+  }
+  #quizFeedback {
+    margin: 15px 0;
+    font-weight: 700;
+    min-height: 24px;
+  }
+
+  /* Links do login e registro */
+  .link-button {
+    background: none;
+    border: none;
+    color: #4caf50;
+    cursor: pointer;
+    padding: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .link-button:hover {
+    text-decoration: underline;
+  }
+  #descartarScreen h2,
+#calendarioScreen h2 {
+  text-align: center;
+}
+#btnSettings {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 24px;
+  background-color: white;
+  border-radius: 50%;
+  padding: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+body.dark-mode #btnSettings {
+  background-color: black;
+}
+#btnProfile {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 24px;
+  cursor: default;
+  user-select: none;
+}
+.login-logo {
+  display: block;
+  margin: 0 auto 15px auto;
+  max-width: 120px;
+  width: 60%;
+  height: auto;
+}
+
+
+
+</style>
+</head>
+<body>
+<div id="app">
+<!-- Top Bar -->
+<header>
+  <div id="btnProfile" title="Perfil">👤</div>
+  <div id="btnSettings" onclick="toggleSettings()" title="Configurações">⚙️</div>
+
+  <div id="userInfo">
+    <div><span id="profileUserLabel">Usuário:</span> <span id="profileUserName">---</span></div>
+    <div><span id="profilePointsLabel">Pontos:</span> <span id="userTopPoints">0</span></div>
+    <div><span id="profileCouponsLabel">Cupons:</span> <span id="userCouponsCount">0</span></div>
+  </div>
+</header>
+
+<!-- Painel Configurações -->
+<div id="settingsPanel">
+<label>
+<span id="darkModeLabel">Modo Escuro</span>
+<input id="darkModeToggle" onchange="toggleDarkMode()" type="checkbox"/>
+</label>
+<label>
+<span id="languageLabel">Idioma</span>
+<select id="languageSelect" onchange="changeLanguage()">
+<option value="pt">Português</option>
+<option value="en">English</option>
+<option value="es">Español</option>
+</select>
+</label>
+</div>
+<!-- Conteúdo principal -->
+<main>
+<!-- Telas -->
+<section aria-label="Tela de Login" class="screen active" id="loginScreen">
+<h2 id="loginTitle">Login</h2>
+<img src="https://i.postimg.cc/8PpPsFNR/IMG-20250610-WA0019-1.png"
+alt="Logo EcoCidadão" class="login-logo" />
+
+
+<form onsubmit="login(event)">
+<label for="email">Email</label>
+<input autocomplete="username" id="email" name="email" placeholder="Digite seu email" required="" type="email"/>
+<label for="password">Senha</label>
+<input autocomplete="current-password" id="password" name="password" placeholder="Digite sua senha" required="" type="password"/>
+<button id="loginBtn" type="submit">Entrar</button>
+</form>
+<p id="registerPrompt">
+  Não tem conta? <button class="link-button" onclick="showRegister()">Cadastre-se</button>
+</p>
+</section>
+<!-- Painel Configurações -->
+<div id="settingsPanel">
+<label>
+<span id="darkModeLabel">Modo Escuro</span>
+<input id="darkModeToggle" onchange="toggleDarkMode()" type="checkbox"/>
+</label>
+<label>
+<span id="languageLabel">Idioma</span>
+<select id="languageSelect" onchange="changeLanguage()">
+<option value="pt">Português</option>
+<option value="en">English</option>
+<option value="es">Español</option>
+</select>
+</label>
+</div>
+<!-- Conteúdo principal -->
+<main>
+<!-- Telas -->
+<section aria-label="Tela de Login" class="screen active" id="loginScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="loginTitle">Login</h2>
+<form onsubmit="login(event)">
+<label for="email">Email</label>
+<input autocomplete="username" id="email" name="email" placeholder="Digite seu email" required="" type="email"/>
+<label for="password">Senha</label>
+<input autocomplete="current-password" id="password" name="password" placeholder="Digite sua senha" required="" type="password"/>
+<button id="loginBtn" type="submit">Entrar</button>
+</form>
+<p id="registerPrompt">
+  Não tem conta? <button class="link-button" onclick="showRegister()">Cadastre-se</button>
+</p>
+</section>
+<!-- Tela de Cadastro -->
+<section aria-label="Tela de Registro" class="screen" id="registerScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="registerTitle">Cadastro</h2>
+<form onsubmit="registerUser(event)">
+<label for="registerName">Nome</label>
+<input autocomplete="name" id="registerName" name="name" placeholder="Digite seu nome" required="" type="text"/>
+<label for="registerEmail">Email</label>
+<input autocomplete="username" id="registerEmail" name="email" placeholder="Digite seu email" required="" type="email"/>
+<label for="registerPassword">Senha</label>
+<input autocomplete="new-password" id="registerPassword" name="password" placeholder="Crie uma senha" required="" type="password"/>
+<button id="registerBtn" type="submit">Cadastrar</button>
+</form>
+<p id="loginPrompt">
+  Já tem uma conta? <button class="link-button" onclick="showLogin()">Entrar</button>
+</p>
+</section>
+<script>
+
+  
+    function showRegister() {
+      document.getElementById('loginScreen').classList.remove('active');
+      document.getElementById('registerScreen').classList.add('active');
+    }
+
+    function showLogin() {
+      document.getElementById('registerScreen').classList.remove('active');
+      document.getElementById('loginScreen').classList.add('active');
+    }
+
+    function login(event) {
+      event.preventDefault(); // Impede o recarregamento da página
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      console.log("Login:", { email, password });
+      // Adicione aqui a lógica real de login
+    }
+
+    function registerUser(event) {
+  event.preventDefault(); // Impede o envio do formulário
+
+  const name = document.getElementById("registerName").value.trim();
+  const email = document.getElementById("registerEmail").value.trim();
+  const password = document.getElementById("registerPassword").value;
+
+  if (!name || !email || !password) {
+    alert("Preencha todos os campos.");
+    return;
+  }
+
+  const newUser = {
+    name,
+    email,
+    password,
+    points: 0,
+    coupons: [],
+    lastQuizDate: { points: 0, prizes: 0 }
+  };
+
+  localStorage.setItem("ecoUser", JSON.stringify(newUser));
+  user = newUser; // Atualiza o usuário logado
+  updateProfileUI();
+
+  alert("Cadastro realizado com sucesso!");
+
+  goTo("menuScreen"); // Redireciona para a tela principal
+};
+      // Adicione aqui a lógica real de cadastro
+    
+  </script>
+<!-- Menu Principal -->
+<section aria-label="Menu Principal" class="screen" id="menuScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="mainMenuTitle">Menu Principal</h2>
+<button id="btnMap" onclick="goTo('mapScreen')">🗺️ <span id="btnMapLabel">Mapa</span></button>
+<button id="btnQuiz" onclick="goTo('quizMenu')">❓ <span id="btnQuizLabel">Quiz</span></button>
+<button id="btnConvert" onclick="goTo('convertScreen')">🎟️ <span id="btnConvertLabel">Converter Pontos</span></button>
+<button id="btnCoupons" onclick="showUserCoupons()">🏷️ <span id="btnCouponsLabel">Meus Cupons</span></button>
+<button id="btnDescartar" onclick="goTo('descartarScreen')">♻️ <span id="btnDescartarLabel">Como Descartar</span></button>
+<button id="btnCalendario" onclick="goTo('calendarioScreen')">📅 <span id="btnCalendarioLabel">Calendário</span></button>
+</section>
+<!-- Mapa -->
+<section aria-label="Tela do Mapa" class="screen" id="mapScreen">
+
+<h2 id="mapTitle">Mapa</h2>
+<div aria-label="Mapa de localização" id="map" role="application"></div>
+</section>
+<!-- Menu Quiz -->
+<section aria-label="Menu de Quiz" class="screen" id="quizMenu" style="min-height: calc(100vh - 130px);">
+<h2 id="quizMenuTitle">Quiz</h2>
+<button id="btnQuizPoints" onclick="openQuiz('points')">Quiz de Pontos</button>
+<button id="btnQuizPrizes" onclick="openQuiz('prizes')">Quiz de Prêmios</button>
+</section>
+<!-- Quiz Perguntas -->
+<section aria-label="Quiz Perguntas" class="screen" id="quizScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="quizTitle">Quiz</h2>
+<div id="quizQuestionText" style="margin:15px 0; font-weight:bold;"></div>
+<div id="quizOptions"></div>
+<div id="quizFeedback"></div>
+<button id="nextQuestionBtn" onclick="nextQuestion()" style="display:none">Próxima</button>
+</section>
+<!-- Converter Pontos em Cupons -->
+<section aria-label="Conversor de Pontos" class="screen" id="convertScreen">
+<h2 id="convertTitle">Converter Pontos em Cupons</h2>
+<div class="container">
+<div class="cupons">
+<label for="couponSelect" id="selectCouponLabel">Selecione o cupom:</label>
+<div id="couponInfo" style="margin-bottom: 10px; font-size: 14px;">
+  <p><strong>Valores dos cupons:</strong></p>
+  <ul style="padding-left: 20px; margin-top: 5px;">
+    <li>Cupom de 10%: 50 pontos</li>
+    <li>Cupom de 20%: 100 pontos</li>
+    <li>Cupom de 40%: 200 pontos</li>
+    <li>Cupom de 50%: 250 pontos</li>
+  </ul>
+</div>
+<select id="couponSelect"></select>
+<button id="convertPointsBtn">Converter</button>
+<div id="convertMessage"></div>
+</div>
+<div class="pontos-info">
+<h3 id="pointsTitle">Seus Pontos</h3>
+<div id="currentPoints" style="font-size: 24px; font-weight: bold;">0</div>
+</div>
+</div>
+</section>
+<!-- Meus Cupons -->
+<section aria-label="Meus Cupons" class="screen" id="cuponsScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="couponsTitle">Meus Cupons</h2>
+<ul id="userCouponsList"></ul>
+</section>
+<!-- Como Descartar -->
+<section aria-label="Como Descartar" class="screen" id="descartarScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="descartarTitle">Como Descartar</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 15px;">
+<div style="flex: 1 1 160px; background:#e3f2fd; border-radius:10px; padding:12px;">
+<strong>🟦 Azul:</strong> Papel e papelão
+    </div>
+<div style="flex: 1 1 160px; background:#e8f5e9; border-radius:10px; padding:12px;">
+<strong>🟩 Verde:</strong> Vidro
+    </div>
+<div style="flex: 1 1 160px; background:#fff8e1; border-radius:10px; padding:12px;">
+<strong>🟨 Amarelo:</strong> Plástico e metal
+    </div>
+<div style="flex: 1 1 160px; background:#ffebee; border-radius:10px; padding:12px;">
+<strong>🟥 Vermelho:</strong> Orgânicos
+    </div>
+</div>
+<p style="margin-top: 15px; line-height:1.5">
+    ✅ Separe corretamente os resíduos.<br/>
+    ✅ Lave embalagens plásticas antes de descartar.<br/>
+    ❌ Evite misturar resíduos orgânicos com recicláveis.
+  </p>
+</section>
+<!-- Calendário -->
+<section aria-label="Calendário" class="screen" id="calendarioScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="calendarTitle">Calendário</h2>
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="background:#e8f5e9; padding:10px; border-radius:8px;">
+<strong>Seg, Qua, Sex - Manhã:</strong><br/>
+      Taíra, Morro, Vila Nova, Samaumapara, Bacuriteua
+    </div>
+<div style="background:#fce4ec; padding:10px; border-radius:8px;">
+<strong>Seg, Qua, Sex - Noite:</strong><br/>
+      Riozinho, Centro, Cereja, Alegre
+    </div>
+<div style="background:#e3f2fd; padding:10px; border-radius:8px;">
+<strong>Ter, Qui, Sáb - Manhã:</strong><br/>
+      Padre Luiz, Vila Sinhá, Alto Paraíso, Perpétuo Socorro
+    </div>
+<div style="background:#fff9c4; padding:10px; border-radius:8px;">
+<strong>Ter, Qui, Sáb - Noite:</strong><br/>
+      Centro, Aldeia, Minha Casa Minha Vida
+    </div>
+<div style="background:#ede7f6; padding:10px; border-radius:8px;">
+<strong>Seg, Qui, Sáb - Tarde:</strong><br/>
+      Ajuruteua
+    </div>
+</div>
+</section>
+<section aria-label="Calendário" class="screen" id="calendarioScreen" style="min-height: calc(100vh - 130px);">
+<h2 id="calendarTitle">Calendário</h2>
+<p>
+<strong>Dias e turnos da coleta:</strong><br/>
+        Segunda, Quarta e Sexta - Manhã: Taíra, Morro, Vila Nova, Samaumapara, Bacuriteua<br/>
+        Segunda, Quarta e Sexta - Noite: Riozinho, Centro, Cereja, Alegre<br/>
+        Terça, Quinta e Sábado - Manhã: Padre Luiz, Vila Sinhá, Alto Paraíso, Perpétuo Socorro<br/>
+        Terça, Quinta e Sábado - Noite: Centro, Aldeia, Minha Casa Minha Vida<br/>
+        Segunda, Quinta e Sábado - Tarde: Ajuruteua
+      </p>
+</section>
+</main>
+<!-- Botão voltar fixo no rodapé -->
+<footer>
+<button id="btnBack" onclick="goBack()">← Voltar</button>
+</footer>
+</div>
+<!-- Leaflet JS para mapa -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+/* Traduções */
+const translations = {
+  pt: {
+    user: "Usuário",
+    points: "Pontos",
+    coupons: "Cupons",
+    login: "Login",
+    register: "Cadastro",
+    enter: "Entrar",
+    registerPrompt: "Não tem conta?",
+    loginPrompt: "Já tem uma conta?",
+    mainMenu: "Menu Principal",
+    btnMap: "Mapa",
+    btnQuiz: "Quiz",
+    btnConvert: "Converter Pontos",
+    btnCoupons: "Meus Cupons",
+    btnDescartar: "Como Descartar",
+    btnCalendario: "Calendário",
+    darkMode: "Modo Escuro",
+    language: "Idioma",
+    quizMenu: "Quiz",
+    quizPointsTitle: "Quiz de Pontos",
+    quizPrizesTitle: "Quiz de Prêmios",
+    quizKnowledgeTitle: "Quiz de Conhecimentos",
+    quizCorrect: "Correto!",
+    quizIncorrect: "Incorreto!",
+    next: "Próxima",
+    back: "Voltar",
+    selectCoupon: "Selecione o cupom:",
+    convertBtn: "Converter",
+    convertSuccess: "Você converteu %POINTS% pontos em um cupom de %COUPON%.",
+    noPointsEnough: "Você não tem pontos suficientes para esse cupom.",
+    noCoupons: "Você ainda não tem cupons.",
+    waitDay: "Você deve esperar %DAYS% dias para responder este quiz novamente.",
+    loading: "Carregando...",
+  },
+  en: {
+    user: "User",
+    points: "Points",
+    coupons: "Coupons",
+    login: "Login",
+    register: "Register",
+    enter: "Enter",
+    registerPrompt: "Don't have an account?",
+    loginPrompt: "Already have an account?",
+    mainMenu: "Main Menu",
+    btnMap: "Map",
+    btnQuiz: "Quiz",
+    btnConvert: "Convert Points",
+    btnCoupons: "My Coupons",
+    btnDescartar: "How to Dispose",
+    btnCalendario: "Calendar",
+    darkMode: "Dark Mode",
+    language: "Language",
+    quizMenu: "Quiz",
+    quizPointsTitle: "Points Quiz",
+    quizPrizesTitle: "Prizes Quiz",
+    quizKnowledgeTitle: "Knowledge Quiz",
+    quizCorrect: "Correct!",
+    quizIncorrect: "Incorrect!",
+    next: "Next",
+    back: "Back",
+    selectCoupon: "Select coupon:",
+    convertBtn: "Convert",
+    convertSuccess: "You converted %POINTS% points into a %COUPON% coupon.",
+    noPointsEnough: "You do not have enough points for this coupon.",
+    noCoupons: "You don't have any coupons yet.",
+    waitDay: "You must wait %DAYS% days to answer this quiz again.",
+    loading: "Loading...",
+  },
+  es: {
+    user: "Usuario",
+    points: "Puntos",
+    coupons: "Cupones",
+    login: "Iniciar sesión",
+    register: "Registro",
+    enter: "Entrar",
+    registerPrompt: "¿No tienes cuenta?",
+    loginPrompt: "¿Ya tienes cuenta?",
+    mainMenu: "Menú Principal",
+    btnMap: "Mapa",
+    btnQuiz: "Quiz",
+    btnConvert: "Convertir Puntos",
+    btnCoupons: "Mis Cupones",
+    btnDescartar: "Cómo Desechar",
+    btnCalendario: "Calendario",
+    darkMode: "Modo Oscuro",
+    language: "Idioma",
+    quizMenu: "Quiz",
+    quizPointsTitle: "Quiz de Puntos",
+    quizPrizesTitle: "Quiz de Premios",
+    quizKnowledgeTitle: "Quiz de Conocimiento",
+    quizCorrect: "¡Correcto!",
+    quizIncorrect: "¡Incorrecto!",
+    next: "Siguiente",
+    back: "Volver",
+    selectCoupon: "Seleccione el cupón:",
+    convertBtn: "Convertir",
+    convertSuccess: "Convertiste %POINTS% puntos en un cupón de %COUPON%.",
+    noPointsEnough: "No tienes suficientes puntos para este cupón.",
+    noCoupons: "Aún no tienes cupones.",
+    waitDay: "Debes esperar %DAYS% días para responder este quiz nuevamente.",
+    loading: "Cargando...",
+  }
+};
+
+/* Cupons disponíveis */
+const couponsAvailable = [
+  {id:'10off', name:{pt:"Cupom 10% Off",en:"10% Off Coupon",es:"Cupón 10% de Descuento"}, pointsRequired:25, discount:"10%"},
+  {id:'20off', name:{pt:"Cupom 20% Off",en:"20% Off Coupon",es:"Cupón 20% de Descuento"}, pointsRequired:50, discount:"20%"},
+  {id:'40off', name:{pt:"Cupom 40% Off",en:"40% Off Coupon",es:"Cupón 40% de Descuento"}, pointsRequired:100, discount:"40%"},
+  {id:'50off', name:{pt:"Cupom 50% Off",en:"50% Off Coupon",es:"Cupón 50% de Descuento"}, pointsRequired:125, discount:"50%"},
+];
+
+/* Dados do Quiz: perguntas sobre descarte correto */
+const quizData = {
+  points: [
+   {
+  q_pt: "Qual é a cor da lixeira para metais?",
+  q_en: "What is the bin color for metals?",
+  q_es: "¿Cuál es el color del contenedor para metales?",
+  options: [
+    { pt: "Amarelo", en: "Yellow", es: "Amarillo" },
+    { pt: "Azul", en: "Blue", es: "Azul" },
+    { pt: "Verde", en: "Green", es: "Verde" },
+    { pt: "Vermelho", en: "Red", es: "Rojo" }
+  ],
+  correct: 0,
+  points: 10
+},
+{
+  q_pt: "O que deve ser feito com embalagens plásticas antes da reciclagem?",
+  q_en: "What should be done with plastic packaging before recycling?",
+  q_es: "¿Qué debe hacerse con los envases plásticos antes de reciclarlos?",
+  options: [
+    { pt: "Lavar e secar", en: "Wash and dry", es: "Lavar y secar" },
+    { pt: "Misturar com lixo orgânico", en: "Mix with organic waste", es: "Mezclar con residuos orgánicos" },
+    { pt: "Quebrar em pedaços pequenos", en: "Break into small pieces", es: "Romper en pedazos pequeños" },
+    { pt: "Colocar no lixo comum", en: "Put in regular trash", es: "Tirar a la basura común" }
+  ],
+  correct: 0,
+  points: 10
+},
+{
+  q_pt: "Qual destes materiais **não é reciclável**?",
+  q_en: "Which of these materials **is not recyclable**?",
+  q_es: "¿Cuál de estos materiales **no es reciclable**?",
+  options: [
+    { pt: "Espelho quebrado", en: "Broken mirror", es: "Espejo roto" },
+    { pt: "Jornal", en: "Newspaper", es: "Periódico" },
+    { pt: "Garrafa PET", en: "PET bottle", es: "Botella PET" },
+    { pt: "Lata de alumínio", en: "Aluminum can", es: "Lata de aluminio" }
+  ],
+  correct: 0,
+  points: 10
+}
+
+  ],
+  prizes: [
+  {
+  q_pt: "Qual gás é o principal responsável pelo aquecimento global?",
+  q_en: "Which gas is the main cause of global warming?",
+  q_es: "¿Qué gas es el principal responsable del calentamiento global?",
+  options: [
+    { pt: "Dióxido de carbono (CO₂)", en: "Carbon dioxide (CO₂)", es: "Dióxido de carbono (CO₂)" },
+    { pt: "Oxigênio (O₂)", en: "Oxygen (O₂)", es: "Oxígeno (O₂)" },
+    { pt: "Nitrogênio (N₂)", en: "Nitrogen (N₂)", es: "Nitrógeno (N₂)" },
+    { pt: "Hidrogênio (H₂)", en: "Hydrogen (H₂)", es: "Hidrógeno (H₂)" }
+  ],
+  correct: 0,
+  points: 10
+},
+{
+  q_pt: "Qual é uma forma eficaz de reduzir a emissão de gases do efeito estufa?",
+  q_en: "What is an effective way to reduce greenhouse gas emissions?",
+  q_es: "¿Cuál es una forma eficaz de reducir las emisiones de gases de efecto invernadero?",
+  options: [
+    { pt: "Usar transporte público", en: "Use public transportation", es: "Usar transporte público" },
+    { pt: "Desmatar florestas", en: "Deforest forests", es: "Talar bosques" },
+    { pt: "Consumir mais carne", en: "Eat more meat", es: "Consumir más carne" },
+    { pt: "Aumentar o uso de carvão", en: "Increase coal use", es: "Aumentar el uso de carbón" }
+  ],
+  correct: 0,
+  points: 10
+},
+{
+  q_pt: "O que é a pegada ecológica?",
+  q_en: "What is the ecological footprint?",
+  q_es: "¿Qué es la huella ecológica?",
+  options: [
+    { pt: "O impacto do consumo humano sobre o meio ambiente", en: "The impact of human consumption on the environment", es: "El impacto del consumo humano sobre el medio ambiente" },
+    { pt: "A quantidade de lixo reciclado em uma cidade", en: "The amount of recycled waste in a city", es: "La cantidad de residuos reciclados en una ciudad" },
+    { pt: "O tamanho das áreas protegidas em um país", en: "The size of protected areas in a country", es: "El tamaño de las áreas protegidas en un país" },
+    { pt: "A emissão de oxigênio pelas plantas", en: "The oxygen emission by plants", es: "La emisión de oxígeno por las plantas" }
+  ],
+  correct: 0,
+  points: 10
+}
+
+  ]
+};
+
+const QUIZ_INTERVALS = {
+  points: 1,   // 1 dia
+  prizes: 7    // 7 dias
+};
+
+let currentLang = "pt";
+let user = null;
+let currentQuizType = null;
+let currentQuizIndex = 0;
+let quizPointsEarned = 0;
+
+/* --- FUNÇÕES --- */
+
+// Tradução das labels do perfil
+function translateProfileLabels(){
+  const t = translations[currentLang];
+  document.getElementById("profilePointsLabel").textContent = t.points + ":";
+  document.getElementById("profileCouponsLabel").textContent = t.coupons + ":";
+  document.getElementById("profileUserLabel").textContent = t.user + ":";
+}
+
+// Atualizar UI do perfil
+function updateProfileUI(){
+  if(!user) return;
+  document.getElementById("profileUserName").textContent = user.name || "---";
+  document.getElementById("userTopPoints").textContent = user.points || 0;
+  document.getElementById("userCouponsCount").textContent = user.coupons ? user.coupons.length : 0;
+  translateProfileLabels();
+}
+
+// Carregar usuário do localStorage
+function loadUser(){
+  const userData = JSON.parse(localStorage.getItem("ecoUser"));
+  if(userData){
+    user = userData;
+    updateProfileUI();
+  }
+}
+
+// Navegação entre telas
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const screen = document.getElementById(screenId);
+  if (screen) screen.classList.add('active');
+
+  // Mostrar ou esconder o botão "Voltar" dependendo da tela
+  const btnBack = document.getElementById("btnBack");
+  if (["loginScreen", "menuScreen","registerScreen"].includes(screenId)) {
+    btnBack.style.display = "none";
+  } else {
+    btnBack.style.display = "inline-block";
+  }
+
+  if (screenId === "menuScreen") {
+    updateProfileUI();
+  }
+  if (screenId === "convertScreen") {
+    fillCouponSelect();
+    updateCurrentPoints();
+    clearConvertMessage();
+  }
+  if (screenId === "descartarScreen") {
+    loadDescartarContent();
+  }
+  if (screenId === "mapScreen") {
+    setTimeout(() => initializeMap(), 300);
+  }
+}
+
+
+
+// Voltar (botão fixo)
+function goBack(){
+  // Voltar para menu salvo
+  const activeScreen = document.querySelector('.screen.active');
+  if(!activeScreen) return;
+  const id = activeScreen.id;
+
+  if(id === "loginScreen" || id === "registerScreen") return; // Não volta destas telas
+
+  // Se estiver no quizScreen ou quizMenu, volta para menuScreen
+  if(id === "quizScreen" || id === "quizMenu"){
+    localStorage.setItem("ecoUser", JSON.stringify(user));
+    goTo("menuScreen");
+    return;
+  }
+  // Se estiver no convertScreen, cupons, descartar, calendario, mapa volta para menu
+  if(["convertScreen","cuponsScreen","descartarScreen","calendarioScreen","mapScreen"].includes(id)){
+    localStorage.setItem("ecoUser", JSON.stringify(user));
+    goTo("menuScreen");
+    return;
+  }
+  // Caso contrário, volta para menu
+  localStorage.setItem("ecoUser", JSON.stringify(user));
+    goTo("menuScreen");
+}
+
+/* Mostrar/Esconder painel configurações */
+function toggleSettings(){
+  const panel = document.getElementById("settingsPanel");
+  panel.style.display = (panel.style.display === "block") ? "none" : "block";
+}
+
+/* Ativa/desativa modo escuro */
+function toggleDarkMode(){
+  const checkbox = document.getElementById("darkModeToggle");
+  if(checkbox.checked){
+    document.body.classList.add("dark-mode");
+  } else {
+    document.body.classList.remove("dark-mode");
+  }
+}
+
+/* Mudar idioma */
+function changeLanguage(){
+  const sel = document.getElementById("languageSelect");
+  currentLang = sel.value;
+  applyTranslations();
+  translateProfileLabels();
+  updateProfileUI();
+  clearConvertMessage();
+
+}
+
+/* Aplicar traduções gerais */
+function applyTranslations(){
+  const t = translations[currentLang];
+  document.documentElement.lang = currentLang;
+
+  document.getElementById("loginTitle").textContent = t.login;
+  document.getElementById("registerTitle").textContent = t.register;
+  document.getElementById("loginBtn").textContent = t.enter;
+  document.getElementById("registerBtn").textContent = t.register;
+  document.getElementById("registerPrompt").innerHTML = t.registerPrompt + ' <button class="link-button" onclick="showRegister()">' + t.register + '</button>';
+document.getElementById("loginPrompt").innerHTML = t.loginPrompt + ' <button class="link-button" onclick="showLogin()">' + t.login + '</button>';
+
+  document.getElementById("loginPrompt").innerHTML = t.loginPrompt + ' <button class="link-button" onclick="showLogin()">'+t.login+'</button>';
+
+  document.getElementById("mainMenuTitle").textContent = t.mainMenu;
+  document.getElementById("btnMapLabel").textContent = t.btnMap;
+  document.getElementById("btnQuizLabel").textContent = t.btnQuiz;
+  document.getElementById("btnConvertLabel").textContent = t.btnConvert;
+  document.getElementById("btnCouponsLabel").textContent = t.btnCoupons;
+  document.getElementById("btnDescartarLabel").textContent = t.btnDescartar;
+  document.getElementById("btnCalendarioLabel").textContent = t.btnCalendario;
+
+  document.getElementById("mapTitle").textContent = t.btnMap;
+  document.getElementById("quizMenuTitle").textContent = t.quizMenu;
+  document.getElementById("quizTitle").textContent = t.quizMenu;
+  document.getElementById("selectCouponLabel").textContent = t.selectCoupon;
+  document.getElementById("convertTitle").textContent = t.btnConvert;
+  document.getElementById("convertPointsBtn").textContent = t.convertBtn;
+  document.getElementById("couponsTitle").textContent = t.btnCoupons;
+  document.getElementById("descartarTitle").textContent = t.btnDescartar;
+  document.getElementById("calendarTitle").textContent = t.btnCalendario;
+  document.getElementById("darkModeLabel").textContent = t.darkMode;
+  document.getElementById("languageLabel").textContent = t.language;
+  document.getElementById("btnQuizPoints").textContent = t.quizPointsTitle;
+document.getElementById("btnQuizPrizes").textContent = t.quizPrizesTitle;
+
+}
+
+/* Mostrar tela login */
+function showLogin(){
+  goTo('loginScreen');
+  clearLoginFields();
+}
+
+/* Mostrar tela registro */
+function showRegister(){
+  goTo('registerScreen');
+  clearRegisterFields();
+}
+
+/* Limpar campos login */
+function clearLoginFields(){
+  document.getElementById("email").value = "";
+  document.getElementById("password").value = "";
+}
+
+/* Limpar campos registro */
+function clearRegisterFields(){
+  document.getElementById("registerName").value = "";
+  document.getElementById("registerEmail").value = "";
+  document.getElementById("registerPassword").value = "";
+}
+
+/* Registrar usuário */
+
+  // Salvar no localStorage (simulando banco)
+  const newUser = {
+    name,
+    email,
+    password,
+    points: 0,
+    coupons: [],
+    lastQuizDate: { points: 0, prizes: 0 }
+  };
+  localStorage.setItem("ecoUser", JSON.stringify(newUser));
+  alert("Cadastro realizado com sucesso!");
+  showLogin();
+
+
+/* Login */
+function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const userData = JSON.parse(localStorage.getItem("ecoUser"));
+
+  if (userData && userData.email === email && userData.password === password) {
+    user = userData;
+    updateProfileUI();
+    localStorage.setItem("ecoUser", JSON.stringify(user));
+    goTo("menuScreen");
+  } else {
+    alert("Email ou senha incorretos.");
+  }
+} 
+
+
+/* Preencher select cupons */
+function fillCouponSelect(){
+  const select = document.getElementById("couponSelect");
+  select.innerHTML = "";
+  couponsAvailable.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name[currentLang];
+    select.appendChild(opt);
+  });
+}
+
+/* Atualizar pontos atuais do usuário */
+function updateCurrentPoints(){
+  if(user){
+    document.getElementById("currentPoints").textContent = user.points;
+  } else {
+    document.getElementById("currentPoints").textContent = "0";
+  }
+}
+
+/* Limpar mensagem conversão */
+function clearConvertMessage(){
+  document.getElementById("convertMessage").textContent = "";
+}
+
+/* Converter pontos em cupom */
+function convertPointsToCoupon(){
+  if(!user) return alert("Usuário não logado.");
+  const select = document.getElementById("couponSelect");
+  const couponId = select.value;
+  const coupon = couponsAvailable.find(c => c.id === couponId);
+  if(!coupon) return;
+
+  if(user.points >= coupon.pointsRequired){
+    user.points -= coupon.pointsRequired;
+    if(!user.coupons) user.coupons = [];
+    user.coupons.push({
+      id: coupon.id,
+      discount: coupon.discount,
+      date: new Date().toISOString()
+    });
+    localStorage.setItem("ecoUser", JSON.stringify(user));
+    updateProfileUI();
+    updateCurrentPoints();
+    document.getElementById("convertMessage").textContent =
+      translations[currentLang].convertSuccess
+        .replace("%POINTS%", coupon.pointsRequired)
+        .replace("%COUPON%", coupon.discount);
+  } else {
+    document.getElementById("convertMessage").textContent = translations[currentLang].noPointsEnough;
+  }
+}
+
+/* Mostrar cupons do usuário */
+function showUserCoupons(){
+  goTo('cuponsScreen');
+  const list = document.getElementById("userCouponsList");
+  list.innerHTML = "";
+  if(!user || !user.coupons || user.coupons.length === 0){
+    list.innerHTML = `<li>${translations[currentLang].noCoupons}</li>`;
+    return;
+  }
+  user.coupons.forEach(c => {
+    const d = new Date(c.date);
+    list.innerHTML += `<li>${c.discount} - Obtido em ${d.toLocaleDateString(currentLang)}</li>`;
+  });
+}
+
+/* Abrir menu quiz (selecionar pontos ou prêmios) */
+function openQuiz(type){
+  currentQuizType = type;
+  currentQuizIndex = 0;
+  quizPointsEarned = 0;
+  loadQuizScreen();
+}
+
+/* Carregar quiz e verificar intervalo */
+function loadQuizScreen(){
+  const t = translations[currentLang];
+  const now = Date.now();
+  const lastDateStr = user.lastQuizDate ? user.lastQuizDate[currentQuizType] : null;
+  const lastDate = lastDateStr ? new Date(lastDateStr).getTime() : 0;
+  const intervalMs = QUIZ_INTERVALS[currentQuizType] * 24 * 60 * 60 * 1000;
+  if(now - lastDate < intervalMs){
+    const daysLeft = Math.ceil((intervalMs - (now - lastDate))/(24*60*60*1000));
+    alert(t.waitDay.replace("%DAYS%", daysLeft));
+    goTo('quizMenu');
+    return;
+  }
+
+  goTo('quizScreen');
+  showQuizQuestion();
+}
+
+/* Mostrar questão atual */
+function showQuizQuestion(){
+  const quiz = quizData[currentQuizType];
+  const q = quiz[currentQuizIndex];
+  if(!q){
+    finishQuiz();
+    return;
+  }
+  const t = translations[currentLang];
+
+  let questionText = q["q_" + currentLang] || q.q_pt || "";
+  document.getElementById("quizQuestionText").textContent = questionText;
+
+  document.getElementById("quizFeedback").textContent = "";
+  document.getElementById("nextQuestionBtn").style.display = "none";
+
+  const optionsDiv = document.getElementById("quizOptions");
+  optionsDiv.innerHTML = "";
+  q.options.forEach((opt,i) => {
+    const btn = document.createElement("button");
+    btn.textContent = (typeof opt === "string") ? opt : opt[currentLang] || opt.pt;
+
+    btn.onclick = () => checkAnswer(i);
+    optionsDiv.appendChild(btn);
+  });
+}
+
+/* Checar resposta */
+function checkAnswer(selectedIndex){
+  const quiz = quizData[currentQuizType];
+  const q = quiz[currentQuizIndex];
+  const t = translations[currentLang];
+  const feedback = document.getElementById("quizFeedback");
+
+  if(selectedIndex === q.correct){
+    feedback.textContent = t.quizCorrect;
+    if(currentQuizType==="points"){
+      quizPointsEarned += q.points || 10;
+    }
+  } else {
+    feedback.textContent = t.quizIncorrect;
+  }
+
+  document.getElementById("nextQuestionBtn").style.display = "inline-block";
+
+  const optionsDiv = document.getElementById("quizOptions");
+  Array.from(optionsDiv.children).forEach(btn => btn.disabled = true);
+}
+
+/* Próxima questão */
+function nextQuestion(){
+  currentQuizIndex++;
+  showQuizQuestion();
+}
+
+/* Finalizar quiz */
+function finishQuiz(){
+  const t = translations[currentLang];
+  if(currentQuizType==="points"){
+    user.points = (user.points || 0) + quizPointsEarned;
+  }
+  if(!user.lastQuizDate) user.lastQuizDate = {};
+  user.lastQuizDate[currentQuizType] = new Date().toISOString();
+
+  localStorage.setItem("ecoUser", JSON.stringify(user));
+  updateProfileUI();
+
+  alert(`Quiz finalizado! ${currentQuizType==="points"? t.points + " ganhos: "+quizPointsEarned : t.quizPrizesTitle+" respondido."}`);
+  localStorage.setItem("ecoUser", JSON.stringify(user));
+    goTo("menuScreen");
+}
+
+/* Conteúdo Como Descartar */
+function loadDescartarContent(){
+  const content = {
+    pt: `Lixeira Azul: Papel e papelão.
+Lixeira Verde: Vidro.
+Lixeira Amarela: Plástico e metal.
+Lixeira Vermelha: Orgânicos.
+
+Dicas: Separe corretamente os resíduos, lave embalagens plásticas antes de descartar, evite misturar resíduos orgânicos com recicláveis.`,
+    en: `Blue Bin: Paper and cardboard.
+Green Bin: Glass.
+Yellow Bin: Plastic and metal.
+Red Bin: Organic waste.
+
+Tips: Separate waste correctly, wash plastic packaging before disposal, avoid mixing organic waste with recyclables.`,
+    es: `Contenedor Azul: Papel y cartón.
+Contenedor Verde: Vidrio.
+Contenedor Amarillo: Plástico y metal.
+Contenedor Rojo: Orgánicos.
+
+Consejos: Separe correctamente los residuos, lave los envases plásticos antes de desecharlos, evite mezclar residuos orgánicos con reciclables.`
+  };
+  document.getElementById("descartarContent").textContent = content[currentLang];
+}
+
+/* MAPA */
+
+// Variável mapa global para não recriar
+let map = null;
+let userMarker = null;
+let trashMarkers = [];
+
+// Coordenadas hipotéticas das lixeiras em Bragança - Pará
+const lixeirasCoords = [
+  { lat: -1.0469578443634677, lng: -46.76661427391246, type: "Azul: Papel e Papelão" },
+  { lat: -1.0449004130445125, lng: -46.78041402674701, type: "Amarelo: Plástico e Metal" },
+  { lat: -1.0513109471794766, lng: -46.78952062608382, type: "Verde: Vidro" },
+  { lat: -1.0613631793661527, lng: -46.77856080985917, type: "Vermelho: Resíduos Orgânicos" },
+  { lat: -1.05827534055224, lng: -46.77088173144246, type: "Azul: Papel e Papelão" },
+  { lat: -1.064376137097159, lng: -46.76599116668489, type: "Amarelo: Plástico e Metal" },
+  { lat: -1.0397592772505548, lng: -46.773745467477255, type: "Vermelho: Resíduos Orgânicos" },
+  { lat: -1.0524746375017136, lng: -46.773683044759366, type: "Verde: Vidro" }
+];
+
+function initializeMap() {
+  if(map) {
+    map.invalidateSize();
+    return;
+  }
+  map = L.map('map').setView([-1.0537, -46.7556], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  lixeirasCoords.forEach(l => {
+    const marker = L.marker([l.lat, l.lng]).addTo(map);
+    marker.bindPopup(`<b>Lixeira: </b>${l.type}`);
+    trashMarkers.push(marker);
+  });
+
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos => {
+      const latlng = [pos.coords.latitude, pos.coords.longitude];
+      if(userMarker) userMarker.setLatLng(latlng);
+      else userMarker = L.marker(latlng, {icon: L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/64/64113.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+      })}).addTo(map).bindPopup("<b>Você está aqui</b>").openPopup();
+      map.setView(latlng, 16);
+    }, err => {
+      console.warn("Não foi possível obter localização:", err.message);
+    });
+  } else {
+    alert("Geolocalização não suportada no seu navegador.");
+  }
+}
+</script>
+<script>
+window.onload = () => {
+  loadUser();
+  applyTranslations();
+  translateProfileLabels();
+
+  // Preencher cupons na conversão
+  fillCouponSelect();
+
+  // Evento do botão converter pontos
+  document.getElementById("convertPointsBtn").onclick = convertPointsToCoupon;
+  
+  // Set default dark mode toggle conforme body
+  document.getElementById("darkModeToggle").checked = document.body.classList.contains("dark-mode");
+};
+</script>
+</body>
+</html> 
